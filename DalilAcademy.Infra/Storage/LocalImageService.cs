@@ -110,10 +110,25 @@ public class LocalImageService : IImageService
     }
     public void DeleteCourseImage(string? imageUrl)
     {
-        if (string.IsNullOrEmpty(imageUrl))
+        if (string.IsNullOrWhiteSpace(imageUrl))
             return;
 
-        var fileName = Path.GetFileName(imageUrl);
+        const string expectedPrefix = "/images/courses/";
+
+        if (!imageUrl.StartsWith(
+            expectedPrefix,
+            StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var fileName = imageUrl[expectedPrefix.Length..];
+
+        if (string.IsNullOrWhiteSpace(fileName) ||
+            fileName != Path.GetFileName(fileName))
+        {
+            return;
+        }
 
         var filePath = Path.Combine(_folder, fileName);
 
