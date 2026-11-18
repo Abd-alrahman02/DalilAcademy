@@ -1,13 +1,10 @@
 using DalilAcademy.Infra.Data;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace DalilAcademy.Infra.Migrations
 {
-    [DbContext(typeof(AppDbContext))]
-    [Migration("20261118190000_AddEnrollmentStatusAndPayments")]
     public partial class AddEnrollmentStatusAndPayments : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)

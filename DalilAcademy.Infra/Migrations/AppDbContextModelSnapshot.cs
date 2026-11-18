@@ -232,22 +232,6 @@ namespace DalilAcademy.Infra.Migrations
 
             modelBuilder.Entity("DalilAcademy.Core.Models.Enrollment", b =>
                 {
-                    b.Navigation("Payments");
-                });
-
-            modelBuilder.Entity("DalilAcademy.Core.Models.Payment", b =>
-                {
-                    b.HasOne("DalilAcademy.Core.Models.Enrollment", "Enrollment")
-                        .WithMany("Payments")
-                        .HasForeignKey("EnrollmentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Enrollment");
-                });
-
-            modelBuilder.Entity("DalilAcademy.Core.Models.Course", b =>
-                {
                     b.HasOne("DalilAcademy.Core.Models.Course", "Course")
                         .WithMany("Enrollments")
                         .HasForeignKey("CourseId")
@@ -263,6 +247,19 @@ namespace DalilAcademy.Infra.Migrations
                     b.Navigation("Course");
 
                     b.Navigation("Student");
+
+                    b.Navigation("Payments");
+                });
+
+            modelBuilder.Entity("DalilAcademy.Core.Models.Payment", b =>
+                {
+                    b.HasOne("DalilAcademy.Core.Models.Enrollment", "Enrollment")
+                        .WithMany("Payments")
+                        .HasForeignKey("EnrollmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Enrollment");
                 });
 
             modelBuilder.Entity("DalilAcademy.Core.Models.Student", b =>
@@ -278,11 +275,6 @@ namespace DalilAcademy.Infra.Migrations
             modelBuilder.Entity("DalilAcademy.Core.Models.Course", b =>
                 {
                     b.Navigation("Enrollments");
-                });
-
-            modelBuilder.Entity("DalilAcademy.Core.Models.Enrollment", b =>
-                {
-                    b.Navigation("Payments");
                 });
 
             modelBuilder.Entity("DalilAcademy.Core.Models.Instructor", b =>
