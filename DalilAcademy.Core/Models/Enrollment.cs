@@ -12,6 +12,8 @@ namespace DalilAcademy.Core.Models
         public int StudentId { get; set; }
         public Student? Student { get; set; }
         public DateTime EnrolledAt { get; set; }
+        public EnrollmentStatus Status { get; set; } = EnrollmentStatus.Pending;
+        public List<Payment> Payments { get; set; } = [];
 
     }
 }

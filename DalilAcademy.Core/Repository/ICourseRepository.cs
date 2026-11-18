@@ -1,8 +1,5 @@
-﻿using DalilAcademy.Core.DTOs;
+using DalilAcademy.Core.DTOs;
 using DalilAcademy.Core.Models;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace DalilAcademy.Core.Repository
 {
@@ -17,8 +14,8 @@ namespace DalilAcademy.Core.Repository
             int page,
             int pageSize,
             decimal? minPrice,
-            decimal? maxPrice
-        );
+            decimal? maxPrice,
+            string? search);
         Task<int> Count();
         Task<bool> ExistsByTitle(string title, int excludeCourseId);
     }
