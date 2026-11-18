@@ -70,11 +70,19 @@ namespace DalilAcademy.Infra.Service
                 throw new NotFoundException(
                     $"Course with ID {dto.CourseId} was not found.");
 
+            var status = enrollment.Status;
+
             if (enrollment.CourseId != dto.CourseId)
+            {
                 await EnsureCourseHasCapacityAsync(course);
 
+                status = course.Price == 0
+                    ? EnrollmentStatus.Paid
+                    : EnrollmentStatus.Pending;
+            }
+
             var updated = await enrollmentRepository.UpdateCourseAsync(
-                id, dto.CourseId);
+                id, dto.CourseId, status);
 
             if (updated is null)
                 throw new NotFoundException(

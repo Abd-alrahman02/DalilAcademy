@@ -73,8 +73,6 @@ namespace DalilAcademy.Infra.Service
             if (enrollment.Status == EnrollmentStatus.Paid)
                 throw new ConflictException("This enrollment has already been paid.");
 
-            await EnsureCourseHasCapacityAsync(enrollment);
-
             var payment = await paymentRepository.GetLatestCreatedAsync(enrollmentId);
             if (payment is null)
                 throw new PaymentFailedException("Call /pay first.");
@@ -85,6 +83,8 @@ namespace DalilAcademy.Infra.Service
                 throw new PaymentFailedException(
                     "The PayPal order has expired. Call /pay again.");
             }
+
+            await EnsureCourseHasCapacityAsync(enrollment);
 
             var captured = await paymentGateway.CaptureOrderAsync(
                 payment.PayPalOrderId, cancellationToken);

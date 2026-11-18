@@ -55,37 +55,49 @@ namespace DalilAcademy.Infra.Payments
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync(cancellationToken);
-            using var document = JsonDocument.Parse(json);
-            var root = document.RootElement;
 
-            var orderId = root.TryGetProperty("id", out var idElement)
-                ? idElement.GetString()
-                : null;
-
-            string? approvalUrl = null;
-            if (root.TryGetProperty("links", out var linksElement) &&
-                linksElement.ValueKind == JsonValueKind.Array)
+            try
             {
-                var approvalLink = linksElement.EnumerateArray()
-                    .FirstOrDefault(link =>
-                    {
-                        return link.TryGetProperty("rel", out var relElement) &&
-                               relElement.GetString() is "approve" or "payer-action";
-                    });
+                using var document = JsonDocument.Parse(json);
+                var root = document.RootElement;
 
-                if (approvalLink.ValueKind != JsonValueKind.Undefined &&
-                    approvalLink.TryGetProperty("href", out var hrefElement))
+                var orderId = root.TryGetProperty("id", out var idElement)
+                    ? idElement.GetString()
+                    : null;
+
+                string? approvalUrl = null;
+                if (root.TryGetProperty("links", out var linksElement) &&
+                    linksElement.ValueKind == JsonValueKind.Array)
                 {
-                    approvalUrl = hrefElement.GetString();
+                    var approvalLink = linksElement.EnumerateArray()
+                        .FirstOrDefault(link =>
+                        {
+                            return link.TryGetProperty("rel", out var relElement) &&
+                                   relElement.GetString() is "approve" or "payer-action";
+                        });
+
+                    if (approvalLink.ValueKind != JsonValueKind.Undefined &&
+                        approvalLink.TryGetProperty("href", out var hrefElement))
+                    {
+                        approvalUrl = hrefElement.GetString();
+                    }
                 }
+
+                if (string.IsNullOrWhiteSpace(orderId) ||
+                    string.IsNullOrWhiteSpace(approvalUrl))
+                {
+                    throw new HttpRequestException(
+                        "PayPal did not return a valid order ID and approval URL.");
+                }
+
+                return new PayPalOrderResult(orderId, approvalUrl);
             }
-
-            if (string.IsNullOrWhiteSpace(orderId) ||
-                string.IsNullOrWhiteSpace(approvalUrl))
+            catch (JsonException exception)
+            {
                 throw new HttpRequestException(
-                    "PayPal did not return a valid order ID and approval URL.");
-
-            return new PayPalOrderResult(orderId, approvalUrl);
+                    "PayPal returned an invalid order response.",
+                    exception);
+            }
         }
 
         public async Task<bool> CaptureOrderAsync(

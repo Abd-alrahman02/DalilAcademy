@@ -39,14 +39,28 @@ namespace DalilAcademy.Infra.Repository
                     "The enrollment could not be reloaded after creation.");
         }
 
-        public async Task<Enrollment?> UpdateCourseAsync(int id, int courseId)
+        public async Task<Enrollment?> UpdateCourseAsync(
+            int id,
+            int courseId,
+            EnrollmentStatus status)
         {
             var enrollment = await context.Enrollments
+                .Include(e => e.Payments)
                 .FirstOrDefaultAsync(e => e.Id == id);
 
             if (enrollment is null) return null;
 
+            if (enrollment.CourseId != courseId)
+            {
+                foreach (var payment in enrollment.Payments.Where(
+                    payment => payment.Status == PaymentStatus.Created))
+                {
+                    payment.Status = PaymentStatus.Failed;
+                }
+            }
+
             enrollment.CourseId = courseId;
+            enrollment.Status = status;
             await SaveAsync();
 
             return await GetByIdAsync(id);

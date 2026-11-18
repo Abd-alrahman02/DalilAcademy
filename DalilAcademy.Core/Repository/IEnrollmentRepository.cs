@@ -7,7 +7,7 @@ namespace DalilAcademy.Core.Repository
         Task<List<Enrollment>> GetAllAsync();
         Task<Enrollment?> GetByIdAsync(int id);
         Task<Enrollment> CreateAsync(Enrollment enrollment);
-        Task<Enrollment?> UpdateCourseAsync(int id, int courseId);
+        Task<Enrollment?> UpdateCourseAsync(int id, int courseId, EnrollmentStatus status);
         Task<bool> DeleteAsync(int id);
         Task<List<Student>> GetPaidStudentsForCourseAsync(int courseId);
         Task<int> CountPaidEnrollmentsForCourseAsync(int courseId);
