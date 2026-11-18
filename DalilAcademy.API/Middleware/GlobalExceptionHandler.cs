@@ -49,7 +49,8 @@ namespace DalilAcademy.API.Middleware
                     NotFoundException or
                     ConflictException or
                     UnauthorizedException or
-                    InvalidCastException
+                    InvalidCastException or
+                    InvalidFileException
                         ? exception.Message
                         : null
             };

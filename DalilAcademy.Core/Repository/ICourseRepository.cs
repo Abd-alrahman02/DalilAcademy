@@ -20,6 +20,6 @@ namespace DalilAcademy.Core.Repository
             decimal? maxPrice
         );
         Task<int> Count();
-        Task<bool> ExistsByTitle(string title);
+        Task<bool> ExistsByTitle(string title, int excludeCourseId);
     }
 }
