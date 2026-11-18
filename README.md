@@ -62,15 +62,18 @@ The PayPal return and cancel URLs are configured in `appsettings.json`. Update t
 
 | Method | Route | Authorization | Purpose |
 |---|---|---|---|
-| GET | `/api/courses` | Public | Paged course listing and price filters |
+| GET | `/api/courses` | Public | Paged course listing, title search, and price filters |
 | GET | `/api/courses/{courseId}/students` | Admin | Students with Paid enrollments in a course |
 | GET | `/api/enrollments` | Admin | List enrollments |
 | GET | `/api/enrollments/{id}` | Admin | Get one enrollment |
+| GET | `/api/enrollments/{id}/payments` | Admin | Payment attempts, newest first |
 | POST | `/api/enrollments` | Admin | Create a Pending enrollment, or Paid if the course is free |
 | PUT | `/api/enrollments/{id}` | Admin | Change the enrollment's course (Paid enrollments cannot be moved) |
 | DELETE | `/api/enrollments/{id}` | Admin | Delete an unpaid enrollment |
 | GET | `/api/enrollments/me` | Student | View the current student's Paid courses |
 | POST | `/api/enrollments/{id}/pay` | Admin | Create a PayPal order |
 | POST | `/api/enrollments/{id}/capture` | Admin | Capture the latest Created payment |
+
+`MaxStudents` is optional; when set, only Paid enrollments count toward a course's capacity. Course search is available with `?search=net&page=1&pageSize=10`.
 
 All amounts are calculated by the backend. The API never accepts the amount to charge from the client.

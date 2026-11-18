@@ -29,6 +29,12 @@ namespace DalilAcademy.Infra.Migrations
                 oldMaxLength: 20,
                 oldDefaultValue: "Paid");
 
+            migrationBuilder.AddColumn<int>(
+                name: "MaxStudents",
+                table: "Courses",
+                type: "integer",
+                nullable: true);
+
             migrationBuilder.CreateTable(
                 name: "Payments",
                 columns: table => new
@@ -70,6 +76,7 @@ namespace DalilAcademy.Infra.Migrations
         {
             migrationBuilder.DropTable(name: "Payments");
             migrationBuilder.DropColumn(name: "Status", table: "Enrollments");
+            migrationBuilder.DropColumn(name: "MaxStudents", table: "Courses");
         }
     }
 }

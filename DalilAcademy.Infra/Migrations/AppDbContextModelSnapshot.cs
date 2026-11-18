@@ -40,6 +40,9 @@ namespace DalilAcademy.Infra.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int?>("MaxStudents")
+                        .HasColumnType("integer");
+
                     b.Property<decimal>("Price")
                         .HasPrecision(10, 2)
                         .HasColumnType("numeric(10,2)");
