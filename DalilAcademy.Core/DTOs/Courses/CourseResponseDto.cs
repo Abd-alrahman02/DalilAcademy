@@ -1,4 +1,4 @@
-﻿namespace DalilAcademy.Core.DTOs.Courses
+namespace DalilAcademy.Core.DTOs.Courses
 {
     public record CourseResponseDto(
         int Id,
@@ -7,6 +7,7 @@
         decimal Price,
         string? ImageUrl,
         int InstructorId,
-        string? InstructorName
+        string? InstructorName,
+        int? MaxStudents
     );
 }

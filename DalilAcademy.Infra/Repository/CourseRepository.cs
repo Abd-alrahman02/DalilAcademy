@@ -1,4 +1,4 @@
-﻿using DalilAcademy.Core.DTOs;
+using DalilAcademy.Core.DTOs;
 using DalilAcademy.Core.Exceptions;
 using DalilAcademy.Core.Models;
 using DalilAcademy.Core.Repository;
@@ -8,26 +8,19 @@ using Npgsql;
 
 namespace DalilAcademy.Infra.Repository
 {
-    public class CourseRepository : ICourseRepository
+    public class CourseRepository(AppDbContext context) : ICourseRepository
     {
-        private readonly AppDbContext _context;
-
-        public CourseRepository(AppDbContext context)
+        public Task<List<Course>> GetAll()
         {
-            _context = context;
-        }
-
-        public async Task<List<Course>> GetAll()
-        {
-            return await _context.Courses
+            return context.Courses
                 .AsNoTracking()
                 .Include(c => c.Instructor)
                 .ToListAsync();
         }
 
-        public async Task<Course?> GetById(int id)
+        public Task<Course?> GetById(int id)
         {
-            return await _context.Courses
+            return context.Courses
                 .AsNoTracking()
                 .Include(c => c.Instructor)
                 .FirstOrDefaultAsync(c => c.Id == id);
@@ -35,10 +28,10 @@ namespace DalilAcademy.Infra.Repository
 
         public async Task<Course> Create(Course course)
         {
-            _context.Courses.Add(course);
-            await Save();
+            context.Courses.Add(course);
+            await SaveAsync();
 
-            return await _context.Courses
+            return await context.Courses
                 .AsNoTracking()
                 .Include(c => c.Instructor)
                 .FirstAsync(c => c.Id == course.Id);
@@ -46,46 +39,46 @@ namespace DalilAcademy.Infra.Repository
 
         public async Task<Course?> Update(int id, Course updatedCourse)
         {
-            var course = await _context.Courses
+            var course = await context.Courses
                 .FirstOrDefaultAsync(c => c.Id == id);
 
-            if (course is null)
-                return null;
+            if (course is null) return null;
 
             course.Title = updatedCourse.Title;
             course.Level = updatedCourse.Level;
             course.Price = updatedCourse.Price;
+            course.MaxStudents = updatedCourse.MaxStudents;
             course.ImageUrl = updatedCourse.ImageUrl;
             course.InstructorId = updatedCourse.InstructorId;
 
-            await Save();
+            await SaveAsync();
 
-            return course;
+            return await context.Courses
+                .AsNoTracking()
+                .Include(c => c.Instructor)
+                .FirstOrDefaultAsync(c => c.Id == id);
         }
 
         public async Task<bool> Delete(int id)
         {
-            var course = await _context.Courses
+            var course = await context.Courses
                 .FirstOrDefaultAsync(c => c.Id == id);
 
-            if (course is null)
-                return false;
+            if (course is null) return false;
 
-            _context.Courses.Remove(course);
-            await Save();
-
+            context.Courses.Remove(course);
+            await SaveAsync();
             return true;
         }
-
-        
 
         public async Task<PagedResult<Course>> GetPaged(
             int page,
             int pageSize,
             decimal? minPrice,
-            decimal? maxPrice)
+            decimal? maxPrice,
+            string? search)
         {
-            var query = _context.Courses
+            var query = context.Courses
                 .AsNoTracking()
                 .Include(c => c.Instructor)
                 .AsQueryable();
@@ -96,6 +89,12 @@ namespace DalilAcademy.Infra.Repository
             if (maxPrice.HasValue)
                 query = query.Where(c => c.Price <= maxPrice.Value);
 
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim();
+                query = query.Where(c => EF.Functions.ILike(c.Title, $"%{term}%"));
+            }
+
             var total = await query.CountAsync();
 
             var items = await query
@@ -104,32 +103,25 @@ namespace DalilAcademy.Infra.Repository
                 .Take(pageSize)
                 .ToListAsync();
 
-
-            return new PagedResult<Course>(
-                items,
-                page,
-                pageSize,
-                total
-            );
+            return new PagedResult<Course>(items, page, pageSize, total);
         }
 
-        public async Task<int> Count()
+        public Task<int> Count()
         {
-            return await _context.Courses.CountAsync();
+            return context.Courses.CountAsync();
         }
 
-        public async Task<bool> ExistsByTitle(string title,int excludeCourseId)
+        public Task<bool> ExistsByTitle(string title, int excludeCourseId)
         {
-            return await _context.Courses.AnyAsync(c =>
-                c.Title == title &&
-                c.Id != excludeCourseId);
+            return context.Courses.AnyAsync(c =>
+                c.Title == title && c.Id != excludeCourseId);
         }
 
-        private async Task Save()
+        private async Task SaveAsync()
         {
             try
             {
-                await _context.SaveChangesAsync();
+                await context.SaveChangesAsync();
             }
             catch (DbUpdateException ex)
                 when (ex.InnerException is PostgresException
@@ -137,7 +129,8 @@ namespace DalilAcademy.Infra.Repository
                     SqlState: PostgresErrorCodes.UniqueViolation
                 })
             {
-                throw new ConflictException("A course with this title already exists.");
+                throw new ConflictException(
+                    "A course with this title already exists.");
             }
         }
     }

@@ -1,4 +1,4 @@
-﻿using DalilAcademy.Core.DTOs.Courses;
+using DalilAcademy.Core.DTOs.Courses;
 using FluentValidation;
 
 namespace DalilAcademy.Core.Validators.Courses
@@ -20,6 +20,10 @@ namespace DalilAcademy.Core.Validators.Courses
             RuleFor(x => x.Price)
                 .GreaterThanOrEqualTo(0)
                 .WithMessage("Price cannot be negative.");
+
+            RuleFor(x => x.MaxStudents)
+                .Must(value => !value.HasValue || value.Value > 0)
+                .WithMessage("MaxStudents must be greater than zero when specified.");
 
             RuleFor(x => x.InstructorId)
                 .GreaterThan(0)

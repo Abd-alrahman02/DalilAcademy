@@ -1,4 +1,4 @@
-﻿using DalilAcademy.Core.DTOs.Courses;
+using DalilAcademy.Core.DTOs.Courses;
 using DalilAcademy.Core.Models;
 
 namespace DalilAcademy.Core.Mappings
@@ -14,8 +14,8 @@ namespace DalilAcademy.Core.Mappings
                 course.Price,
                 course.ImageUrl,
                 course.InstructorId,
-                course.Instructor?.FullName
-            );
+                course.Instructor?.FullName,
+                course.MaxStudents);
         }
 
         public static Course ToEntity(this CreateCourseDto dto)
@@ -26,7 +26,8 @@ namespace DalilAcademy.Core.Mappings
                 Level = dto.Level,
                 Price = dto.Price,
                 ImageUrl = dto.ImageUrl,
-                InstructorId = dto.InstructorId
+                InstructorId = dto.InstructorId,
+                MaxStudents = dto.MaxStudents
             };
         }
     }

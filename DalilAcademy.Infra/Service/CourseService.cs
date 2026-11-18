@@ -1,4 +1,4 @@
-﻿using DalilAcademy.Core.DTOs;
+using DalilAcademy.Core.DTOs;
 using DalilAcademy.Core.DTOs.Courses;
 using DalilAcademy.Core.Exceptions;
 using DalilAcademy.Core.Mappings;
@@ -10,25 +10,22 @@ using FluentValidation;
 namespace DalilAcademy.Infra.Service
 {
     public class CourseService(
-    ICourseRepository courseRepository,
-    IValidator<CreateCourseDto> createValidator,
-    IValidator<UpdateCourseDto> updateValidator,
-    IImageService imageService) : ICourseService
+        ICourseRepository courseRepository,
+        IValidator<CreateCourseDto> createValidator,
+        IValidator<UpdateCourseDto> updateValidator,
+        IImageService imageService) : ICourseService
     {
         public async Task<List<CourseResponseDto>> GetAll()
         {
             var courses = await courseRepository.GetAll();
-
             return courses.Select(course => course.ToDto()).ToList();
         }
 
         public async Task<CourseResponseDto> GetById(int id)
         {
             var course = await courseRepository.GetById(id);
-
             if (course is null)
-                throw new NotFoundException(
-                    $"Course with ID {id} was not found.");
+                throw new NotFoundException($"Course with ID {id} was not found.");
 
             return course.ToDto();
         }
@@ -36,54 +33,38 @@ namespace DalilAcademy.Infra.Service
         public async Task<CourseResponseDto> Create(CreateCourseDto dto)
         {
             await createValidator.ValidateAndThrowAsync(dto);
-
-            var course = dto.ToEntity();
-
-            var createdCourse = await courseRepository.Create(course);
-
+            var createdCourse = await courseRepository.Create(dto.ToEntity());
             return createdCourse.ToDto();
         }
 
-        public async Task<CourseResponseDto> Update(
-            int id,
-            UpdateCourseDto dto)
+        public async Task<CourseResponseDto> Update(int id, UpdateCourseDto dto)
         {
             await updateValidator.ValidateAndThrowAsync(dto);
 
             var course = await courseRepository.GetById(id);
-
             if (course is null)
-                throw new NotFoundException(
-                    $"Course with ID {id} was not found.");
+                throw new NotFoundException($"Course with ID {id} was not found.");
 
             var oldImageUrl = course.ImageUrl;
-
             course.Title = dto.Title;
             course.Level = dto.Level;
             course.Price = dto.Price;
+            course.MaxStudents = dto.MaxStudents;
             course.ImageUrl = dto.ImageUrl;
             course.InstructorId = dto.InstructorId;
 
             if (await courseRepository.ExistsByTitle(dto.Title, id))
-            {
-                throw new ConflictException(
-                    "A course with this title already exists.");
-            }
+                throw new ConflictException("A course with this title already exists.");
 
             var updatedCourse = await courseRepository.Update(id, course);
-
             if (updatedCourse is null)
-                throw new NotFoundException(
-                    $"Course with ID {id} was not found.");
+                throw new NotFoundException($"Course with ID {id} was not found.");
 
-            if (!string.Equals(
-                oldImageUrl,
-                updatedCourse.ImageUrl,
+            if (!string.Equals(oldImageUrl, updatedCourse.ImageUrl,
                 StringComparison.OrdinalIgnoreCase))
             {
                 imageService.DeleteCourseImage(oldImageUrl);
             }
-
 
             return updatedCourse.ToDto();
         }
@@ -91,16 +72,11 @@ namespace DalilAcademy.Infra.Service
         public async Task Delete(int id)
         {
             var course = await courseRepository.GetById(id);
-
             if (course is null)
-                throw new NotFoundException(
-                    $"Course with ID {id} was not found.");
+                throw new NotFoundException($"Course with ID {id} was not found.");
 
-            var deleted = await courseRepository.Delete(id);
-
-            if (!deleted)
-                throw new NotFoundException(
-                    $"Course with ID {id} was not found.");
+            if (!await courseRepository.Delete(id))
+                throw new NotFoundException($"Course with ID {id} was not found.");
 
             imageService.DeleteCourseImage(course.ImageUrl);
         }
@@ -109,30 +85,18 @@ namespace DalilAcademy.Infra.Service
             int page,
             int pageSize,
             decimal? minPrice,
-            decimal? maxPrice)
+            decimal? maxPrice,
+            string? search)
         {
             var result = await courseRepository.GetPaged(
-                page,
-                pageSize,
-                minPrice,
-                maxPrice
-            );
+                page, pageSize, minPrice, maxPrice, search);
 
-            var items = result.Items
-                .Select(course => course.ToDto())
-                .ToList();
+            var items = result.Items.Select(course => course.ToDto()).ToList();
 
             return new PagedResult<CourseResponseDto>(
-                items,
-                result.Page,
-                result.PageSize,
-                result.TotalCount
-            );
+                items, result.Page, result.PageSize, result.TotalCount);
         }
 
-        public Task<int> Count()
-        {
-            return courseRepository.Count();
-        }
+        public Task<int> Count() => courseRepository.Count();
     }
 }

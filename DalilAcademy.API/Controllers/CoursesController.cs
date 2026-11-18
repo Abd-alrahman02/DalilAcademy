@@ -1,9 +1,9 @@
-﻿using DalilAcademy.Core.DTOs;
+using DalilAcademy.Core.DTOs;
 using DalilAcademy.Core.DTOs.Courses;
+using DalilAcademy.Core.DTOs.Students;
 using DalilAcademy.Core.Security;
 using DalilAcademy.Core.Service;
 using DalilAcademy.Core.Storage;
-using DalilAcademy.Core.DTOs.Students;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,7 +12,10 @@ namespace DalilAcademy.API.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class CoursesController(ICourseService courseService, IImageService images, IEnrollmentService enrollmentService) : ControllerBase
+    public class CoursesController(
+        ICourseService courseService,
+        IImageService images,
+        IEnrollmentService enrollmentService) : ControllerBase
     {
         [HttpGet]
         [AllowAnonymous]
@@ -20,17 +23,14 @@ namespace DalilAcademy.API.Controllers
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10,
             [FromQuery] decimal? minPrice = null,
-            [FromQuery] decimal? maxPrice = null)
+            [FromQuery] decimal? maxPrice = null,
+            [FromQuery] string? search = null)
         {
             page = Math.Max(page, 1);
             pageSize = Math.Clamp(pageSize, 1, 50);
 
             var courses = await courseService.GetPaged(
-                page,
-                pageSize,
-                minPrice,
-                maxPrice
-            );
+                page, pageSize, minPrice, maxPrice, search);
 
             return Ok(courses);
         }
@@ -49,23 +49,15 @@ namespace DalilAcademy.API.Controllers
         [HttpGet("{id:int}")]
         public async Task<ActionResult<CourseResponseDto>> GetById(int id)
         {
-            var course = await courseService.GetById(id);
-
-            return Ok(course);
+            return Ok(await courseService.GetById(id));
         }
 
         [HttpPost]
         [Authorize(Roles = Roles.Admin)]
-        public async Task<ActionResult<CourseResponseDto>> Create(
-            CreateCourseDto dto)
+        public async Task<ActionResult<CourseResponseDto>> Create(CreateCourseDto dto)
         {
             var course = await courseService.Create(dto);
-
-            return CreatedAtAction(
-                nameof(GetById),
-                new { id = course.Id },
-                course
-            );
+            return CreatedAtAction(nameof(GetById), new { id = course.Id }, course);
         }
 
         [HttpPut("{id:int}")]
@@ -74,9 +66,7 @@ namespace DalilAcademy.API.Controllers
             int id,
             UpdateCourseDto dto)
         {
-            var course = await courseService.Update(id, dto);
-
-            return Ok(course);
+            return Ok(await courseService.Update(id, dto));
         }
 
         [HttpDelete("{id:int}")]
@@ -84,34 +74,25 @@ namespace DalilAcademy.API.Controllers
         public async Task<IActionResult> Delete(int id)
         {
             await courseService.Delete(id);
-
             return NoContent();
         }
 
         [HttpGet("count")]
         public async Task<ActionResult<int>> Count()
         {
-            var count = await courseService.Count();
-
-            return Ok(count);
+            return Ok(await courseService.Count());
         }
-
 
         [HttpPost("upload-image")]
         [Authorize(Roles = Roles.Admin)]
         public async Task<IActionResult> UploadImage(IFormFile file)
         {
             if (file is null)
-            {
                 return BadRequest("Image file is required.");
-            }
 
             await using var stream = file.OpenReadStream();
-
             var imageUrl = await images.SaveCourseImageAsync(
-                stream,
-                file.FileName,
-                file.Length);
+                stream, file.FileName, file.Length);
 
             return Ok(new { imageUrl });
         }
