@@ -57,7 +57,14 @@ namespace DalilAcademy.Infra.Service
             course.Title = dto.Title;
             course.Level = dto.Level;
             course.Price = dto.Price;
+            course.ImageUrl = dto.ImageUrl;
             course.InstructorId = dto.InstructorId;
+
+            if (await courseRepository.ExistsByTitle(dto.Title, id))
+            {
+                throw new ConflictException(
+                    "A course with this title already exists.");
+            }
 
             var updatedCourse = await courseRepository.Update(id, course);
 
@@ -65,9 +72,6 @@ namespace DalilAcademy.Infra.Service
                 throw new NotFoundException(
                     $"Course with ID {id} was not found.");
 
-            if (await courseRepository.ExistsByTitle(dto.Title))
-                throw new ConflictException(
-                    "A course with this title already exists.");
 
             return updatedCourse.ToDto();
         }

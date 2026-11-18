@@ -38,7 +38,10 @@ namespace DalilAcademy.Infra.Repository
             _context.Courses.Add(course);
             await Save();
 
-            return course;
+            return await _context.Courses
+                .AsNoTracking()
+                .Include(c => c.Instructor)
+                .FirstAsync(c => c.Id == course.Id);
         }
 
         public async Task<Course?> Update(int id, Course updatedCourse)
@@ -52,6 +55,7 @@ namespace DalilAcademy.Infra.Repository
             course.Title = updatedCourse.Title;
             course.Level = updatedCourse.Level;
             course.Price = updatedCourse.Price;
+            course.ImageUrl = updatedCourse.ImageUrl;
             course.InstructorId = updatedCourse.InstructorId;
 
             await Save();
@@ -114,10 +118,11 @@ namespace DalilAcademy.Infra.Repository
             return await _context.Courses.CountAsync();
         }
 
-        public async Task<bool> ExistsByTitle(string title)
+        public async Task<bool> ExistsByTitle(string title,int excludeCourseId)
         {
-            return await _context.Courses
-                .AnyAsync(c => c.Title == title);
+            return await _context.Courses.AnyAsync(c =>
+                c.Title == title &&
+                c.Id != excludeCourseId);
         }
 
         private async Task Save()
