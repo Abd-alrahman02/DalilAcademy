@@ -1,79 +1,305 @@
-# DalilAcademy LMS — Web API
+# DalilAcademy — Learning Management System API
 
-An ASP.NET Core Web API for a Learning Management System, built with Onion Architecture.
+![.NET](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white)
+![ASP.NET Core](https://img.shields.io/badge/ASP.NET_Core-Web_API-512BD4?logo=dotnet&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-4169E1?logo=postgresql&logoColor=white)
+![Architecture](https://img.shields.io/badge/Architecture-Onion-0A7B83)
 
-## Technology
+An **ASP.NET Core Web API** for a Learning Management System (LMS). DalilAcademy provides course, student, and enrollment management, JWT-based authentication, role-based access, and a PayPal Sandbox payment workflow.
 
-- .NET 10 / ASP.NET Core Web API
-- Entity Framework Core and PostgreSQL
-- Fluent API configurations and EF Core migrations
-- JWT authentication, role-based authorization, and BCrypt password hashing
-- FluentValidation and centralized Problem Details error handling
-- PayPal Orders API v2 (Sandbox)
+> The project is organized using Onion Architecture, with domain contracts kept separate from infrastructure and HTTP concerns.
 
-## Solution structure
+## Contents
 
-- **DalilAcademy.Core** — domain models, DTOs, repository/service contracts, validation, and exceptions
-- **DalilAcademy.Infra** — EF Core persistence, repositories, business services, local image storage, and PayPal integration
-- **DalilAcademy.API** — controllers, dependency injection, authentication, and middleware
+- [Features](#features)
+- [Technology Stack](#technology-stack)
+- [Architecture](#architecture)
+- [Domain and Payment Workflow](#domain-and-payment-workflow)
+- [API Overview](#api-overview)
+- [Getting Started](#getting-started)
+- [PayPal Sandbox Configuration](#paypal-sandbox-configuration)
+- [Validation and Error Handling](#validation-and-error-handling)
+- [Build and CI](#build-and-ci)
+- [Security Notes](#security-notes)
 
-## Run locally
+## Features
 
-Requirements: .NET 10 SDK and a running PostgreSQL instance.
+### Courses
+- Course CRUD operations with instructor association.
+- Paged course listing.
+- Filter courses by minimum and maximum price.
+- Search courses by title while retaining pagination.
+- Course count endpoint.
+- Course image upload and local image storage.
+- Optional course capacity through `MaxStudents`.
 
-### 1. Configure User Secrets
+### Students and Authentication
+- Student management endpoints for administrators.
+- Student registration and login.
+- Password hashing with BCrypt.
+- JWT authentication and role-based authorization for `Admin`, `Instructor`, and `Student`.
 
-Run these commands from the solution root. The API project already has a User Secrets ID; initialize it only if your local project does not have one.
+### Enrollments
+- Create and manage student course enrollments.
+- Enrollment lifecycle with `Pending` and `Paid` states.
+- Free courses are marked `Paid` when the enrollment is created.
+- Paid enrollments cannot be deleted or moved to another course.
+- Students can view their own paid courses.
+- Course student lists include paid enrollments only.
 
-```powershell
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "<POSTGRES_CONNECTION_STRING>" --project .\DalilAcademy.API\DalilAcademy.API.csproj
-dotnet user-secrets set "Jwt:Key" "<JWT_SIGNING_KEY_AT_LEAST_32_BYTES>" --project .\DalilAcademy.API\DalilAcademy.API.csproj
-dotnet user-secrets set "SeedAdmin:Password" "<ADMIN_PASSWORD>" --project .\DalilAcademy.API\DalilAcademy.API.csproj
-dotnet user-secrets set "PayPal:ClientId" "<PAYPAL_SANDBOX_CLIENT_ID>" --project .\DalilAcademy.API\DalilAcademy.API.csproj
-dotnet user-secrets set "PayPal:ClientSecret" "<PAYPAL_SANDBOX_CLIENT_SECRET>" --project .\DalilAcademy.API\DalilAcademy.API.csproj
+### Payments
+- PayPal Orders API v2 integration using Sandbox credentials.
+- Each payment attempt is stored independently.
+- Payment states: `Created`, `Completed`, and `Failed`.
+- Payment history for an enrollment, newest attempt first.
+- The backend calculates the amount; the client never supplies the amount to charge.
+- PayPal order capture is limited to the three-hour order window.
+
+### Capacity and Search (Bonus Features)
+- Only `Paid` enrollments count toward a course's `MaxStudents` limit.
+- Course title search works together with pagination and price filters.
+- Payment history exposes all payment attempts for an enrollment.
+
+## Technology Stack
+
+| Area | Technology |
+|---|---|
+| Framework | .NET 10, ASP.NET Core Web API |
+| Language | C# |
+| Data access | Entity Framework Core 10 |
+| Database | PostgreSQL |
+| ORM configuration | EF Core Fluent API and Code First migrations |
+| Authentication | JWT Bearer authentication |
+| Password hashing | BCrypt |
+| Validation | FluentValidation |
+| API documentation | Swagger / OpenAPI |
+| Payments | PayPal Orders API v2 — Sandbox |
+| HTTP integration | Typed `HttpClient` |
+| CI | GitHub Actions |
+
+## Architecture
+
+The solution is split into three projects:
+
+| Project | Responsibility |
+|---|---|
+| **DalilAcademy.Core** | Domain models and enums, DTOs, service and repository contracts, validation rules, security abstractions, and custom exceptions |
+| **DalilAcademy.Infra** | EF Core `DbContext`, entity configurations, migrations, repository and service implementations, local image storage, and PayPal integration |
+| **DalilAcademy.API** | REST controllers, dependency injection, JWT configuration, middleware, exception handling, and Swagger |
+
+### Request and dependency flow
+
+```text
+HTTP Request
+    |
+    v
+DalilAcademy.API
+    |  Controller
+    v
+DalilAcademy.Core
+    |  Service / Repository contracts
+    v
+DalilAcademy.Infra
+    |  Service and repository implementations
+    v
+Entity Framework Core
+    |
+    v
+PostgreSQL
+
+PaymentService ----> IPaymentGateway ----> PayPalPaymentGateway
+                                             |
+                                             v
+                                      PayPal Sandbox
 ```
 
-Never put database passwords, JWT signing keys, admin passwords, or PayPal credentials in tracked configuration files.
+Controllers are kept focused on HTTP concerns. Business rules live in services, while persistence and external PayPal communication are implemented in the infrastructure layer.
 
-### 2. Apply database migrations
+## Domain and Payment Workflow
 
-```powershell
-dotnet ef database update --project .\DalilAcademy.Infra\DalilAcademy.Infra.csproj --startup-project .\DalilAcademy.API\DalilAcademy.API.csproj
-```
+### Enrollment status
 
-### 3. Run the API
+| Situation | Enrollment status |
+|---|---|
+| New enrollment in a paid course | `Pending` |
+| New enrollment in a free course | `Paid` |
+| Successful PayPal capture | `Paid` |
+| Failed or unapproved capture | Remains `Pending` |
 
-```powershell
-dotnet run --project .\DalilAcademy.API\DalilAcademy.API.csproj
-```
+A `Paid` enrollment cannot be deleted or transferred to another course. The student's **My Courses** endpoint returns paid courses only.
 
-Swagger is available at `http://localhost:5118/swagger` when running with the included HTTP launch profile.
+### PayPal payment lifecycle
 
-## Enrollment payment flow (PayPal Sandbox)
+1. An administrator creates an enrollment for a paid course. The enrollment is `Pending`.
+2. The administrator calls `POST /api/enrollments/{id}/pay`.
+3. The backend reads the course price in JOD, multiplies it by the configured JOD-to-USD rate (**1 JOD = 1.41 USD**), and rounds the result to two decimal places.
+4. The API creates a PayPal order with intent `CAPTURE` and saves a `Payment` record with status `Created`.
+5. The client opens the returned `approvalUrl`; the buyer approves the order using a PayPal Sandbox Personal account.
+6. The administrator calls `POST /api/enrollments/{id}/capture`.
+7. The enrollment becomes `Paid` only when PayPal reports `COMPLETED`. Otherwise the attempt is marked `Failed`, the enrollment remains `Pending`, and another payment attempt can be created.
 
-1. Sign in as an Admin and create an enrollment for a paid course. Its status is `Pending`.
-2. Call `POST /api/enrollments/{id}/pay`. The server calculates the amount using the course price in JOD multiplied by the configured fixed rate of 1.41, rounds to two decimal places, creates a PayPal order, and stores a `Created` Payment record in USD.
-3. Open the returned `approvalUrl` and approve the payment using the PayPal Sandbox personal (buyer) account.
-4. Call `POST /api/enrollments/{id}/capture`. The enrollment becomes `Paid` only when PayPal returns `COMPLETED`. Failed attempts remain recorded as `Failed`, and a new payment attempt can be created with `/pay`.
+Each attempt has its own payment record, so failed and previous attempts remain available through payment history. PayPal orders must be captured within three hours.
 
-The PayPal return and cancel URLs are configured in `appsettings.json`. Update them if your local Swagger address changes. Sandbox credentials belong in User Secrets only; Sandbox does not move real money.
+## API Overview
 
-## Main endpoints
+Swagger is available in the Development environment at:
 
-| Method | Route | Authorization | Purpose |
+`http://localhost:5118/swagger`
+
+### Authentication
+
+| Method | Route | Access | Description |
 |---|---|---|---|
-| GET | `/api/courses` | Public | Paged course listing, title search, and price filters |
-| GET | `/api/courses/{courseId}/students` | Admin | Students with Paid enrollments in a course |
+| POST | `/api/auth/register` | Public | Register a Student account |
+| POST | `/api/auth/login` | Public | Authenticate and receive a JWT |
+
+### Courses
+
+| Method | Route | Access | Description |
+|---|---|---|---|
+| GET | `/api/courses` | Public | Paged course list; supports `search`, `minPrice`, and `maxPrice` |
+| GET | `/api/courses/{id}` | Authenticated | Get a course |
+| GET | `/api/courses/count` | Authenticated | Get the course count |
+| GET | `/api/courses/{courseId}/students` | Admin | List students with a Paid enrollment in the course |
+| POST | `/api/courses` | Admin | Create a course |
+| PUT | `/api/courses/{id}` | Admin, Instructor | Update a course |
+| DELETE | `/api/courses/{id}` | Admin | Delete a course |
+| POST | `/api/courses/upload-image` | Admin | Upload a course image |
+
+Example course search:
+
+```http
+GET /api/courses?search=net&page=1&pageSize=10
+```
+
+### Students
+
+| Method | Route | Access | Description |
+|---|---|---|---|
+| GET | `/api/students` | Admin | Paged student list |
+| GET | `/api/students/{id}` | Admin | Get a student |
+| GET | `/api/students/{id}/courses` | Admin | Get a student's courses |
+| POST | `/api/students` | Admin | Create a student |
+| PUT | `/api/students/{id}` | Admin | Update a student |
+| DELETE | `/api/students/{id}` | Admin | Delete a student |
+
+### Enrollments and Payments
+
+| Method | Route | Access | Description |
+|---|---|---|---|
 | GET | `/api/enrollments` | Admin | List enrollments |
 | GET | `/api/enrollments/{id}` | Admin | Get one enrollment |
-| GET | `/api/enrollments/{id}/payments` | Admin | Payment attempts, newest first |
-| POST | `/api/enrollments` | Admin | Create a Pending enrollment, or Paid if the course is free |
-| PUT | `/api/enrollments/{id}` | Admin | Change the enrollment's course (Paid enrollments cannot be moved) |
-| DELETE | `/api/enrollments/{id}` | Admin | Delete an unpaid enrollment |
-| GET | `/api/enrollments/me` | Student | View the current student's Paid courses |
-| POST | `/api/enrollments/{id}/pay` | Admin | Create a PayPal order |
+| GET | `/api/enrollments/me` | Student | Get the current student's Paid courses |
+| GET | `/api/enrollments/{id}/payments` | Admin | List payment attempts, newest first |
+| POST | `/api/enrollments` | Admin | Create an enrollment |
+| POST | `/api/enrollments/{id}/pay` | Admin | Create a PayPal order and payment attempt |
 | POST | `/api/enrollments/{id}/capture` | Admin | Capture the latest Created payment |
+| PUT | `/api/enrollments/{id}` | Admin | Move an unpaid enrollment to another course |
+| DELETE | `/api/enrollments/{id}` | Admin | Delete an unpaid enrollment |
 
-`MaxStudents` is optional; when set, only Paid enrollments count toward a course's capacity. Course search is available with `?search=net&page=1&pageSize=10`.
+All protected endpoints require a JWT Bearer token. Role restrictions are shown in the access column.
 
-All amounts are calculated by the backend. The API never accepts the amount to charge from the client.
+## Getting Started
+
+### Prerequisites
+
+- .NET 10 SDK
+- PostgreSQL
+- PayPal Developer account with Sandbox credentials (only required for testing payment endpoints)
+- EF Core command-line tool
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/Abd-alrahman02/DalilAcademy.git
+cd DalilAcademy
+```
+
+### 2. Configure secrets
+
+The API project has a configured User Secrets ID. Run the following commands from the solution root and replace the sample values with your own local values.
+
+**PowerShell:**
+
+```powershell
+$api = ".\DalilAcademy.API\DalilAcademy.API.csproj"
+
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=DalilAcademyDb;Username=postgres;Password=YOUR_DB_PASSWORD" --project $api
+dotnet user-secrets set "Jwt:Key" "YOUR_RANDOM_SIGNING_KEY_AT_LEAST_32_BYTES_LONG" --project $api
+dotnet user-secrets set "SeedAdmin:Password" "YOUR_LOCAL_ADMIN_PASSWORD" --project $api
+dotnet user-secrets set "PayPal:ClientId" "YOUR_PAYPAL_SANDBOX_CLIENT_ID" --project $api
+dotnet user-secrets set "PayPal:ClientSecret" "YOUR_PAYPAL_SANDBOX_CLIENT_SECRET" --project $api
+```
+
+Do not commit the values used in these commands. User Secrets are stored outside the repository.
+
+### 3. Install the EF Core CLI tool
+
+If it is not already installed:
+
+```bash
+dotnet tool install --global dotnet-ef --version 10.0.14
+```
+
+### 4. Restore, migrate, and build
+
+```bash
+dotnet restore DalilAcademy.slnx
+dotnet ef database update --project DalilAcademy.Infra/DalilAcademy.Infra.csproj --startup-project DalilAcademy.API/DalilAcademy.API.csproj
+dotnet build DalilAcademy.slnx --configuration Release
+```
+
+The database is created/updated from the committed EF Core migrations. On initial setup, the application also seeds an administrator and sample instructors/courses when the relevant tables are empty.
+
+The seeded administrator email is `admin@dalil.jo`; its password is the value configured in `SeedAdmin:Password`.
+
+### 5. Run the API
+
+```bash
+dotnet run --project DalilAcademy.API/DalilAcademy.API.csproj
+```
+
+The included HTTP launch profile uses `http://localhost:5118` and the Development environment. Open [Swagger UI](http://localhost:5118/swagger) to explore the endpoints.
+
+## PayPal Sandbox Configuration
+
+The following non-secret settings are stored in `DalilAcademy.API/appsettings.json`:
+
+| Setting | Purpose |
+|---|---|
+| `PayPal:BaseUrl` | PayPal Sandbox API base URL |
+| `PayPal:ReturnUrl` | URL PayPal redirects to after approval |
+| `PayPal:CancelUrl` | URL PayPal redirects to if the buyer cancels |
+| `PayPal:JodToUsdRate` | Fixed conversion rate; currently `1.41` |
+
+The Client ID and Client Secret must be configured with User Secrets, never in `appsettings.json`.
+
+Use the Sandbox **Business** account as the seller and the Sandbox **Personal** account as the buyer. Sandbox payments do not move real money. If the local API port changes, update the return and cancel URLs to match the Swagger address.
+
+## Validation and Error Handling
+
+The API uses FluentValidation for request validation and centralized exception handling with Problem Details responses.
+
+Important business-rule responses include:
+
+| Status | Example |
+|---|---|
+| 400 Bad Request | Capture is requested before a payment attempt exists, or PayPal does not complete the capture |
+| 401 Unauthorized | Missing or invalid JWT |
+| 403 Forbidden | Authenticated user does not have the required role |
+| 404 Not Found | Requested course, student, or enrollment does not exist |
+| 409 Conflict | Duplicate enrollment, an already-paid enrollment is modified, or course capacity is reached |
+| 503 Service Unavailable | PayPal cannot be reached |
+
+## Build and CI
+
+A GitHub Actions workflow is configured at `.github/workflows/dotnet-build.yml`. It restores and builds the solution for pushes to `main` and `dev`, and for pull requests targeting `main`.
+
+The workflow currently validates restore and compilation; it is not an end-to-end test of PostgreSQL or a live PayPal Sandbox payment.
+
+## Security Notes
+
+- Keep database credentials, JWT signing keys, the seeded administrator password, and PayPal credentials in User Secrets or another secure secret provider.
+- Never commit local `secrets.json`, `.env` files containing credentials, or real production secrets.
+- Use PayPal Sandbox credentials for local payment development.
+- Use HTTPS and production-grade secret storage when deploying outside local development.
