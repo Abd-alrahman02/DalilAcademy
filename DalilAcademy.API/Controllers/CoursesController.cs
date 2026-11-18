@@ -3,6 +3,7 @@ using DalilAcademy.Core.DTOs.Courses;
 using DalilAcademy.Core.Security;
 using DalilAcademy.Core.Service;
 using DalilAcademy.Core.Storage;
+using DalilAcademy.Core.DTOs.Students;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,7 +12,7 @@ namespace DalilAcademy.API.Controllers
     [ApiController]
     [Route("api/[controller]")]
     [Authorize]
-    public class CoursesController(ICourseService courseService, IImageService images) : ControllerBase
+    public class CoursesController(ICourseService courseService, IImageService images, IEnrollmentService enrollmentService) : ControllerBase
     {
         [HttpGet]
         [AllowAnonymous]
@@ -32,6 +33,17 @@ namespace DalilAcademy.API.Controllers
             );
 
             return Ok(courses);
+        }
+
+        [HttpGet("{courseId:int}/students")]
+        [Authorize(Roles = Roles.Admin)]
+        public async Task<ActionResult<List<StudentResponseDto>>> GetStudents(
+            int courseId)
+        {
+            var students =
+                await enrollmentService.GetPaidStudentsForCourseAsync(courseId);
+
+            return Ok(students);
         }
 
         [HttpGet("{id:int}")]

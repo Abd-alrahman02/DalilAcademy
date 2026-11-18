@@ -1,10 +1,15 @@
-﻿using DalilAcademy.Core.Models;
+using DalilAcademy.Core.Models;
 
 namespace DalilAcademy.Core.Repository
 {
     public interface IEnrollmentRepository
     {
-        Task<Student?> GetStudentWithCoursesByUserIdAsync(
-            int userId);
+        Task<List<Enrollment>> GetAllAsync();
+        Task<Enrollment?> GetByIdAsync(int id);
+        Task<Enrollment> CreateAsync(Enrollment enrollment);
+        Task<Enrollment?> UpdateCourseAsync(int id, int courseId);
+        Task<bool> DeleteAsync(int id);
+        Task<List<Student>> GetPaidStudentsForCourseAsync(int courseId);
+        Task<Student?> GetStudentWithCoursesByUserIdAsync(int userId);
     }
 }
