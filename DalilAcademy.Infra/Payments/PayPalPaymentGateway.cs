@@ -58,17 +58,27 @@ namespace DalilAcademy.Infra.Payments
             using var document = JsonDocument.Parse(json);
             var root = document.RootElement;
 
-            var orderId = root.GetProperty("id").GetString();
-            var approvalLink = root.GetProperty("links").EnumerateArray()
-                .FirstOrDefault(link =>
-                {
-                    var rel = link.GetProperty("rel").GetString();
-                    return rel is "approve" or "payer-action";
-                });
+            var orderId = root.TryGetProperty("id", out var idElement)
+                ? idElement.GetString()
+                : null;
 
-            var approvalUrl = approvalLink.ValueKind == JsonValueKind.Undefined
-                ? null
-                : approvalLink.GetProperty("href").GetString();
+            string? approvalUrl = null;
+            if (root.TryGetProperty("links", out var linksElement) &&
+                linksElement.ValueKind == JsonValueKind.Array)
+            {
+                var approvalLink = linksElement.EnumerateArray()
+                    .FirstOrDefault(link =>
+                    {
+                        return link.TryGetProperty("rel", out var relElement) &&
+                               relElement.GetString() is "approve" or "payer-action";
+                    });
+
+                if (approvalLink.ValueKind != JsonValueKind.Undefined &&
+                    approvalLink.TryGetProperty("href", out var hrefElement))
+                {
+                    approvalUrl = hrefElement.GetString();
+                }
+            }
 
             if (string.IsNullOrWhiteSpace(orderId) ||
                 string.IsNullOrWhiteSpace(approvalUrl))
@@ -92,14 +102,28 @@ namespace DalilAcademy.Infra.Payments
             request.Content = new StringContent("{}", Encoding.UTF8, "application/json");
 
             using var response = await _httpClient.SendAsync(request, cancellationToken);
+            if ((int)response.StatusCode >= 500)
+            {
+                throw new HttpRequestException(
+                    "PayPal service returned a server error.",
+                    null,
+                    response.StatusCode);
+            }
+
             if (!response.IsSuccessStatusCode) return false;
 
             var json = await response.Content.ReadAsStringAsync(cancellationToken);
-            using var document = JsonDocument.Parse(json);
-
-            return document.RootElement.TryGetProperty("status", out var status) &&
-                   string.Equals(status.GetString(), "COMPLETED",
-                       StringComparison.OrdinalIgnoreCase);
+            try
+            {
+                using var document = JsonDocument.Parse(json);
+                return document.RootElement.TryGetProperty("status", out var status) &&
+                       string.Equals(status.GetString(), "COMPLETED",
+                           StringComparison.OrdinalIgnoreCase);
+            }
+            catch (JsonException)
+            {
+                return false;
+            }
         }
 
         private async Task<string> GetAccessTokenAsync(
@@ -126,8 +150,18 @@ namespace DalilAcademy.Infra.Payments
             using var response = await _httpClient.SendAsync(request, cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            var token = await response.Content.ReadFromJsonAsync<AccessTokenResponse>(
-                cancellationToken: cancellationToken);
+            AccessTokenResponse? token;
+            try
+            {
+                token = await response.Content.ReadFromJsonAsync<AccessTokenResponse>(
+                    cancellationToken: cancellationToken);
+            }
+            catch (JsonException exception)
+            {
+                throw new HttpRequestException(
+                    "PayPal returned an invalid access token response.",
+                    exception);
+            }
 
             if (string.IsNullOrWhiteSpace(token?.AccessToken))
                 throw new HttpRequestException("PayPal did not return an access token.");
