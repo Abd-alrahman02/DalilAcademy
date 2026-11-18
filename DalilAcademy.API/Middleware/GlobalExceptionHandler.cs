@@ -29,6 +29,12 @@ namespace DalilAcademy.API.Middleware
                 UnauthorizedException =>
                     (StatusCodes.Status401Unauthorized, "Unauthorized"),
 
+                PaymentFailedException =>
+                    (StatusCodes.Status400BadRequest, "Payment failed"),
+
+                HttpRequestException =>
+                    (StatusCodes.Status503ServiceUnavailable, "Payment provider unavailable"),
+
                 InvalidFileException => 
                     (StatusCodes.Status400BadRequest, "Invalid file"),
                 _ =>
@@ -50,9 +56,12 @@ namespace DalilAcademy.API.Middleware
                     ConflictException or
                     UnauthorizedException or
                     InvalidCastException or
-                    InvalidFileException
+                    InvalidFileException or
+                    PaymentFailedException
                         ? exception.Message
-                        : null
+                        : exception is HttpRequestException
+                            ? "PayPal is currently unavailable. Please try again later."
+                            : null
             };
 
             if (exception is ValidationException validationException)

@@ -1,5 +1,6 @@
 using DalilAcademy.Core.DTOs.Enrollments;
 using DalilAcademy.Core.DTOs.Students;
+using DalilAcademy.Core.DTOs.Payments;
 using DalilAcademy.Core.Exceptions;
 using DalilAcademy.Core.Security;
 using DalilAcademy.Core.Service;
@@ -13,7 +14,8 @@ namespace DalilAcademy.API.Controllers
     [Route("api/[controller]")]
     [Authorize]
     public class EnrollmentsController(
-        IEnrollmentService enrollmentService) : ControllerBase
+        IEnrollmentService enrollmentService,
+        IPaymentService paymentService) : ControllerBase
     {
         [HttpGet]
         [Authorize(Roles = Roles.Admin)]
@@ -56,6 +58,28 @@ namespace DalilAcademy.API.Controllers
         {
             await enrollmentService.DeleteAsync(id);
             return NoContent();
+        }
+
+        [HttpPost("{id:int}/pay")]
+        [Authorize(Roles = Roles.Admin)]
+        public async Task<ActionResult<PayEnrollmentResponseDto>> Pay(
+            int id,
+            CancellationToken cancellationToken)
+        {
+            var result = await paymentService.PayAsync(id, cancellationToken);
+            return Ok(result);
+        }
+
+        [HttpPost("{id:int}/capture")]
+        [Authorize(Roles = Roles.Admin)]
+        public async Task<ActionResult<EnrollmentResponseDto>> Capture(
+            int id,
+            CancellationToken cancellationToken)
+        {
+            var enrollment =
+                await paymentService.CaptureAsync(id, cancellationToken);
+
+            return Ok(enrollment);
         }
 
         [HttpGet("me")]

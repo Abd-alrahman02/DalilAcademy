@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using DalilAcademy.Core.DTOs.Payments;
 using DalilAcademy.Core.Service;
 using Microsoft.Extensions.Options;
@@ -136,8 +137,13 @@ namespace DalilAcademy.Infra.Payments
 
         private sealed class AccessTokenResponse
         {
+            [JsonPropertyName("access_token")]
             public string AccessToken { get; set; } = string.Empty;
+
+            [JsonPropertyName("token_type")]
             public string TokenType { get; set; } = string.Empty;
+
+            [JsonPropertyName("expires_in")]
             public int ExpiresIn { get; set; }
         }
     }
