@@ -73,11 +73,13 @@ namespace DalilAcademy.Infra.Service
             if (enrollment.Status == EnrollmentStatus.Paid)
                 throw new ConflictException("This enrollment has already been paid.");
 
+            await EnsureCourseHasCapacityAsync(enrollment);
+
             var payment = await paymentRepository.GetLatestCreatedAsync(enrollmentId);
             if (payment is null)
                 throw new PaymentFailedException("Call /pay first.");
 
-            if (DateTime.UtcNow - payment.CreatedAt > TimeSpan.FromHours(3))
+            if (DateTime.UtcNow - payment.CreatedAt >= TimeSpan.FromHours(3))
             {
                 await paymentRepository.MarkFailedAsync(payment.Id);
                 throw new PaymentFailedException(
@@ -102,6 +104,38 @@ namespace DalilAcademy.Infra.Service
                     $"Payment with ID {payment.Id} was not found.");
 
             return ToDto(await GetEnrollmentOrThrowAsync(enrollmentId));
+        }
+
+        public async Task<List<PaymentResponseDto>> GetHistoryAsync(int enrollmentId)
+        {
+            _ = await GetEnrollmentOrThrowAsync(enrollmentId);
+            var payments = await paymentRepository.GetByEnrollmentAsync(enrollmentId);
+
+            return payments.Select(payment => new PaymentResponseDto(
+                payment.Id,
+                payment.EnrollmentId,
+                payment.Amount,
+                payment.Currency,
+                payment.PayPalOrderId,
+                payment.Status,
+                payment.CreatedAt,
+                payment.PaidAt)).ToList();
+        }
+
+        private async Task EnsureCourseHasCapacityAsync(Enrollment enrollment)
+        {
+            var course = enrollment.Course
+                ?? throw new NotFoundException(
+                    $"Course for enrollment {enrollment.Id} was not found.");
+
+            if (!course.MaxStudents.HasValue) return;
+
+            var paidCount = await enrollmentRepository
+                .CountPaidEnrollmentsForCourseAsync(course.Id);
+
+            if (paidCount >= course.MaxStudents.Value)
+                throw new ConflictException(
+                    "This course has reached its maximum number of paid students.");
         }
 
         private async Task<Enrollment> GetEnrollmentOrThrowAsync(int id)

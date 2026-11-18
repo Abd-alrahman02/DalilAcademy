@@ -44,10 +44,7 @@ namespace DalilAcademy.Infra.Repository
             var enrollment = await context.Enrollments
                 .FirstOrDefaultAsync(e => e.Id == id);
 
-            if (enrollment is null)
-            {
-                return null;
-            }
+            if (enrollment is null) return null;
 
             enrollment.CourseId = courseId;
             await SaveAsync();
@@ -60,14 +57,10 @@ namespace DalilAcademy.Infra.Repository
             var enrollment = await context.Enrollments
                 .FirstOrDefaultAsync(e => e.Id == id);
 
-            if (enrollment is null)
-            {
-                return false;
-            }
+            if (enrollment is null) return false;
 
             context.Enrollments.Remove(enrollment);
             await SaveAsync();
-
             return true;
         }
 
@@ -80,6 +73,13 @@ namespace DalilAcademy.Infra.Repository
                 .Select(e => e.Student!)
                 .OrderBy(s => s.Id)
                 .ToListAsync();
+        }
+
+        public Task<int> CountPaidEnrollmentsForCourseAsync(int courseId)
+        {
+            return context.Enrollments.CountAsync(e =>
+                e.CourseId == courseId &&
+                e.Status == EnrollmentStatus.Paid);
         }
 
         public Task<Student?> GetStudentWithCoursesByUserIdAsync(int userId)

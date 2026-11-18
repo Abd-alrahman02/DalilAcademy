@@ -33,6 +33,16 @@ namespace DalilAcademy.Infra.Repository
                 .FirstOrDefaultAsync();
         }
 
+        public Task<List<Payment>> GetByEnrollmentAsync(int enrollmentId)
+        {
+            return context.Payments
+                .AsNoTracking()
+                .Where(p => p.EnrollmentId == enrollmentId)
+                .OrderByDescending(p => p.CreatedAt)
+                .ThenByDescending(p => p.Id)
+                .ToListAsync();
+        }
+
         public async Task MarkFailedAsync(int paymentId)
         {
             var payment = await context.Payments

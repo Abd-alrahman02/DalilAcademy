@@ -12,5 +12,7 @@ namespace DalilAcademy.Core.Service
         Task<EnrollmentResponseDto> CaptureAsync(
             int enrollmentId,
             CancellationToken cancellationToken = default);
+
+        Task<List<PaymentResponseDto>> GetHistoryAsync(int enrollmentId);
     }
 }

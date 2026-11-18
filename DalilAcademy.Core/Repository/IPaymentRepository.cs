@@ -8,5 +8,6 @@ namespace DalilAcademy.Core.Repository
         Task<Payment?> GetLatestCreatedAsync(int enrollmentId);
         Task MarkFailedAsync(int paymentId);
         Task<bool> CompleteAsync(int paymentId, DateTime paidAt);
+        Task<List<Payment>> GetByEnrollmentAsync(int enrollmentId);
     }
 }

@@ -1,6 +1,6 @@
 using DalilAcademy.Core.DTOs.Enrollments;
-using DalilAcademy.Core.DTOs.Students;
 using DalilAcademy.Core.DTOs.Payments;
+using DalilAcademy.Core.DTOs.Students;
 using DalilAcademy.Core.Exceptions;
 using DalilAcademy.Core.Security;
 using DalilAcademy.Core.Service;
@@ -38,9 +38,7 @@ namespace DalilAcademy.API.Controllers
         {
             var enrollment = await enrollmentService.CreateAsync(dto);
             return CreatedAtAction(
-                nameof(GetById),
-                new { id = enrollment.Id },
-                enrollment);
+                nameof(GetById), new { id = enrollment.Id }, enrollment);
         }
 
         [HttpPut("{id:int}")]
@@ -58,6 +56,13 @@ namespace DalilAcademy.API.Controllers
         {
             await enrollmentService.DeleteAsync(id);
             return NoContent();
+        }
+
+        [HttpGet("{id:int}/payments")]
+        [Authorize(Roles = Roles.Admin)]
+        public async Task<ActionResult<List<PaymentResponseDto>>> PaymentHistory(int id)
+        {
+            return Ok(await paymentService.GetHistoryAsync(id));
         }
 
         [HttpPost("{id:int}/pay")]
@@ -86,13 +91,9 @@ namespace DalilAcademy.API.Controllers
         [Authorize(Roles = Roles.Student)]
         public async Task<ActionResult<List<StudentCourseDto>>> MyCourses()
         {
-            var userIdValue =
-                User.FindFirstValue(ClaimTypes.NameIdentifier);
-
+            var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!int.TryParse(userIdValue, out var userId))
-            {
                 throw new UnauthorizedException("Invalid user identity.");
-            }
 
             var courses =
                 await enrollmentService.GetCoursesForUserAsync(userId);

@@ -21,26 +21,22 @@ namespace DalilAcademy.Infra.Service
 
         public async Task<EnrollmentResponseDto> GetByIdAsync(int id)
         {
-            var enrollment = await GetEnrollmentOrThrowAsync(id);
-            return ToDto(enrollment);
+            return ToDto(await GetEnrollmentOrThrowAsync(id));
         }
 
-        public async Task<EnrollmentResponseDto> CreateAsync(
-            CreateEnrollmentDto dto)
+        public async Task<EnrollmentResponseDto> CreateAsync(CreateEnrollmentDto dto)
         {
             var student = await studentRepository.GetById(dto.StudentId);
             if (student is null)
-            {
                 throw new NotFoundException(
                     $"Student with ID {dto.StudentId} was not found.");
-            }
 
             var course = await courseRepository.GetById(dto.CourseId);
             if (course is null)
-            {
                 throw new NotFoundException(
                     $"Course with ID {dto.CourseId} was not found.");
-            }
+
+            await EnsureCourseHasCapacityAsync(course);
 
             var enrollment = new Enrollment
             {
@@ -71,20 +67,18 @@ namespace DalilAcademy.Infra.Service
 
             var course = await courseRepository.GetById(dto.CourseId);
             if (course is null)
-            {
                 throw new NotFoundException(
                     $"Course with ID {dto.CourseId} was not found.");
-            }
+
+            if (enrollment.CourseId != dto.CourseId)
+                await EnsureCourseHasCapacityAsync(course);
 
             var updated = await enrollmentRepository.UpdateCourseAsync(
-                id,
-                dto.CourseId);
+                id, dto.CourseId);
 
             if (updated is null)
-            {
                 throw new NotFoundException(
                     $"Enrollment with ID {id} was not found.");
-            }
 
             return ToDto(updated);
         }
@@ -94,17 +88,12 @@ namespace DalilAcademy.Infra.Service
             var enrollment = await GetEnrollmentOrThrowAsync(id);
 
             if (enrollment.Status == EnrollmentStatus.Paid)
-            {
                 throw new ConflictException(
                     "A paid enrollment cannot be deleted.");
-            }
 
-            var deleted = await enrollmentRepository.DeleteAsync(id);
-            if (!deleted)
-            {
+            if (!await enrollmentRepository.DeleteAsync(id))
                 throw new NotFoundException(
                     $"Enrollment with ID {id} was not found.");
-            }
         }
 
         public async Task<List<StudentResponseDto>> GetPaidStudentsForCourseAsync(
@@ -112,10 +101,8 @@ namespace DalilAcademy.Infra.Service
         {
             var course = await courseRepository.GetById(courseId);
             if (course is null)
-            {
                 throw new NotFoundException(
                     $"Course with ID {courseId} was not found.");
-            }
 
             var students =
                 await enrollmentRepository.GetPaidStudentsForCourseAsync(courseId);
@@ -123,17 +110,14 @@ namespace DalilAcademy.Infra.Service
             return students.Select(student => student.ToDto()).ToList();
         }
 
-        public async Task<List<StudentCourseDto>> GetCoursesForUserAsync(
-            int userId)
+        public async Task<List<StudentCourseDto>> GetCoursesForUserAsync(int userId)
         {
             var student = await enrollmentRepository
                 .GetStudentWithCoursesByUserIdAsync(userId);
 
             if (student is null)
-            {
                 throw new NotFoundException(
                     "Student profile was not found for the current user.");
-            }
 
             return student.Enrollments
                 .Where(e => e.Course is not null)
@@ -141,9 +125,20 @@ namespace DalilAcademy.Infra.Service
                     e.CourseId,
                     e.Course!.Title,
                     e.Course.Price,
-                    e.EnrolledAt
-                ))
+                    e.EnrolledAt))
                 .ToList();
+        }
+
+        private async Task EnsureCourseHasCapacityAsync(Course course)
+        {
+            if (!course.MaxStudents.HasValue) return;
+
+            var paidCount = await enrollmentRepository
+                .CountPaidEnrollmentsForCourseAsync(course.Id);
+
+            if (paidCount >= course.MaxStudents.Value)
+                throw new ConflictException(
+                    "This course has reached its maximum number of paid students.");
         }
 
         private async Task<Enrollment> GetEnrollmentOrThrowAsync(int id)
@@ -163,8 +158,7 @@ namespace DalilAcademy.Infra.Service
                 enrollment.Course?.Title ?? string.Empty,
                 enrollment.Course?.Price ?? 0,
                 enrollment.EnrolledAt,
-                enrollment.Status
-            );
+                enrollment.Status);
         }
     }
 }
