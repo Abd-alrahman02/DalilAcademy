@@ -250,6 +250,12 @@ namespace DalilAcademy.Infra.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasMany("DalilAcademy.Core.Models.Payment", "Payments")
+                        .WithOne("Enrollment")
+                        .HasForeignKey("EnrollmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.Navigation("Course");
 
                     b.Navigation("Student");
@@ -259,12 +265,6 @@ namespace DalilAcademy.Infra.Migrations
 
             modelBuilder.Entity("DalilAcademy.Core.Models.Payment", b =>
                 {
-                    b.HasOne("DalilAcademy.Core.Models.Enrollment", "Enrollment")
-                        .WithMany("Payments")
-                        .HasForeignKey("EnrollmentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.Navigation("Enrollment");
                 });
 
